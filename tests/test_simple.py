@@ -5,6 +5,11 @@ import time
 from functools import partial
 from wait_for import wait_for, wait_for_decorator, TimedOutError
 
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
 
 class Incrementor():
     value = 0
@@ -33,11 +38,26 @@ def test_lambda_wait():
     assert tc < 2, "Should take less than 2 seconds"
 
 
-def test_lambda_long_wait():
+@patch('wait_for.default_hidden_logger.error')
+def test_lambda_long_wait(error_logger):
     incman = Incrementor()
     with pytest.raises(TimedOutError):
         wait_for(lambda self: self.i_sleep_a_lot() > 10, [incman],
                  num_sec=1, message="lambda_long_wait")
+
+
+@patch('wait_for.default_hidden_logger.error')
+def test_lambda_default_message_from_src(error_logger):
+    incman = Incrementor()
+    with pytest.raises(TimedOutError):
+        wait_for(lambda self: self.i_sleep_a_lot() > 10, [incman],
+                 num_sec=1)
+    error_log_messages = [call[0][0] for call in error_logger.call_args_list]
+    for message in error_log_messages:
+        if "lambda self: self.i_sleep_a_lot()" in message:
+            break
+    else:
+        pytest.fail("The error log doesn't contain a message with code of the lambda function")
 
 
 def test_partial():
